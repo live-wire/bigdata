@@ -24,13 +24,17 @@ object GDelt {
     val sc = spark.sparkContext // If you need SparkContext object
 
     import spark.implicits._
-
-
+    
+    
     println("\n\n RDD implementation below: \n\n")
+    val trdd = System.nanoTime()
     rddImplementation(sc)
+    println("Elapsed time: " + (System.nanoTime() - trdd) + "ns")
 
     println("\n\n Dataset implementation below: \n\n")
+    val tds = System.nanoTime()
     dsImplementation(sc, spark)
+    println("Elapsed time: " + (System.nanoTime() - tds) + "ns")
 
     spark.stop
   }
