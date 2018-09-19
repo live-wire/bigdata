@@ -5,6 +5,7 @@ import org.apache.spark.sql._
 import java.sql.Timestamp
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext._
+import java.io._
 
 object GDelt {
   case class GDeltClass (
@@ -15,7 +16,7 @@ object GDelt {
     Logger.getLogger("org").setLevel(Level.OFF);
     Logger.getLogger("akka").setLevel(Level.OFF);
     Logger.getLogger("org.apache.spark").setLevel(Level.OFF)
-    
+    val segments = Option(new File("./segment/").list).map(_.filter(_.endsWith(".csv")).size).getOrElse(0);
     val spark = SparkSession
       .builder
       .appName("GDelt")
@@ -25,7 +26,8 @@ object GDelt {
 
     import spark.implicits._
     
-    
+    println("Running on " + Option(new File("./segment/").list).map(_.filter(_.endsWith(".csv")).size).getOrElse(0) + " segments ======>")
+
     println("\n\n RDD implementation below: \n\n")
     val trdd = System.nanoTime()
     rddImplementation(sc)
@@ -103,7 +105,7 @@ object GDelt {
                   .csv("./segment/*.csv")
                   .as[GDeltClass]
 
-    val gdelt = ds.filter(line=>line.AllNames!=null)
+    val gdelt = ds.filter(line=>line.AllNames!=null && line.DATE!=null)
                   .map(t=>(t.DATE.toString().split(" ")(0), t.AllNames.split(";")
                                     .map(tup=>(tup.split(",")(0),1))
                                     .distinct))
