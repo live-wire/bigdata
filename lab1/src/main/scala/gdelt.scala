@@ -33,6 +33,11 @@ object GDelt {
     rddImplementation(sc)
     println("Elapsed time: " + (System.nanoTime() - trdd) + "ns")
 
+    println("\n\n RDD-V2 implementation below: \n\n")
+    val trdd2 = System.nanoTime()
+    rddImplementationV2(sc)
+    println("Elapsed time: " + (System.nanoTime() - trdd2) + "ns")
+
     println("\n\n Dataset implementation below: \n\n")
     val tds = System.nanoTime()
     dsImplementation(sc, spark)
@@ -63,6 +68,23 @@ object GDelt {
                   .reduceByKey((x,y)=>x++y)
                   .collect() // Important before we can call multiple sc.parallelize
                   .map(t=>rowReducer(t._1, t._2, sc))
+  }
+
+  def rddImplementationV2(sc: org.apache.spark.SparkContext) {
+    val gdeltv2 = sc.textFile("./segment/*.csv") // Array[String] Reads all csv files inside the segment folder
+                  .map(s=>s.split("\t")) // Array[Array[String]]
+                  .filter(a=>a.size>23 && a(23)!="") // Array[Array[String]]
+                  .map(a=>(a(1).substring(0, 4)+"-" + a(1).substring(4, 6) + "-" + a(1).substring(6, 8), 
+                          a(23).split(";")))
+                  .map(t=>(t._1,t._2.map(tin=>tin.split(",")(0)).distinct))
+                  .flatMap(t=>t._2.map(w=>((t._1,w),1)))
+                  .reduceByKey((x,y)=>x+y)
+                  .groupBy(t=>t._1._1)
+                  .mapValues(t=>t.map(tin=>(tin._1._2,tin._2))
+                                 .toArray.sortBy(t=>t._2)
+                                 .reverse.take(10))
+                  .collect()
+                  .foreach(t=>println(t._1,t._2.mkString(" ")))
   }
 
   def dsImplementation(sc: org.apache.spark.SparkContext, spark: SparkSession) {
