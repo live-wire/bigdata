@@ -12,6 +12,37 @@ object GDelt {
       DATE: Timestamp,
       AllNames: String
   )
+  val schema = StructType(
+      Array(
+          StructField("GKGRECORDID",  StringType, nullable=true),
+          StructField("DATE", TimestampType,  nullable=true),
+          StructField("SourceCollectionIdentifier", IntegerType,  nullable=true),
+          StructField("SourceCommonName", StringType, nullable=true),
+          StructField("DocumentIdentifier", StringType, nullable=true),
+          StructField("Counts", StringType, nullable=true),
+          StructField("V2Counts", StringType, nullable=true),
+          StructField("Themes", StringType, nullable=true),
+          StructField("V2Themes", StringType, nullable=true),
+          StructField("Locations",  StringType, nullable=true),
+          StructField("V2Locations",  StringType, nullable=true),
+          StructField("Persons",  StringType, nullable=true),
+          StructField("V2Persons",  StringType, nullable=true),
+          StructField("Organizations",  StringType, nullable=true),
+          StructField("V2Organizations",  StringType, nullable=true),
+          StructField("V2Tone", StringType, nullable=true),
+          StructField("Dates",  StringType, nullable=true),
+          StructField("GCAM", StringType, nullable=true),
+          StructField("SharingImage", StringType, nullable=true),
+          StructField("RelatedImages",  StringType, nullable=true),
+          StructField("SocialImageEmbeds",  StringType, nullable=true),
+          StructField("SocialVideoEmbeds",  StringType, nullable=true),
+          StructField("Quotations", StringType, nullable=true),
+          StructField("AllNames", StringType, nullable=true), //  23  --->  Using this
+          StructField("Amounts",  StringType, nullable=true),
+          StructField("TranslationInfo",  StringType, nullable=true),
+          StructField("Extras", StringType, nullable=true)
+      )
+  )
   def main(args: Array[String]) {
     Logger.getLogger("org").setLevel(Level.OFF);
     Logger.getLogger("akka").setLevel(Level.OFF);
@@ -42,6 +73,11 @@ object GDelt {
     val tds = System.nanoTime()
     dsImplementation(sc, spark)
     println("Elapsed time: " + (System.nanoTime() - tds) + "ns")
+
+    println("\n\n Dataset-V2 implementation below: \n\n")
+    val tds2 = System.nanoTime()
+    dsImplementationV2(sc, spark)
+    println("Elapsed time: " + (System.nanoTime() - tds2) + "ns")
 
     spark.stop
   }
@@ -88,37 +124,6 @@ object GDelt {
   }
 
   def dsImplementation(sc: org.apache.spark.SparkContext, spark: SparkSession) {
-    val schema = StructType(
-        Array(
-            StructField("GKGRECORDID",  StringType, nullable=true),
-            StructField("DATE", TimestampType,  nullable=true),
-            StructField("SourceCollectionIdentifier", IntegerType,  nullable=true),
-            StructField("SourceCommonName", StringType, nullable=true),
-            StructField("DocumentIdentifier", StringType, nullable=true),
-            StructField("Counts", StringType, nullable=true),
-            StructField("V2Counts", StringType, nullable=true),
-            StructField("Themes", StringType, nullable=true),
-            StructField("V2Themes", StringType, nullable=true),
-            StructField("Locations",  StringType, nullable=true),
-            StructField("V2Locations",  StringType, nullable=true),
-            StructField("Persons",  StringType, nullable=true),
-            StructField("V2Persons",  StringType, nullable=true),
-            StructField("Organizations",  StringType, nullable=true),
-            StructField("V2Organizations",  StringType, nullable=true),
-            StructField("V2Tone", StringType, nullable=true),
-            StructField("Dates",  StringType, nullable=true),
-            StructField("GCAM", StringType, nullable=true),
-            StructField("SharingImage", StringType, nullable=true),
-            StructField("RelatedImages",  StringType, nullable=true),
-            StructField("SocialImageEmbeds",  StringType, nullable=true),
-            StructField("SocialVideoEmbeds",  StringType, nullable=true),
-            StructField("Quotations", StringType, nullable=true),
-            StructField("AllNames", StringType, nullable=true), //  23  --->  Using this
-            StructField("Amounts",  StringType, nullable=true),
-            StructField("TranslationInfo",  StringType, nullable=true),
-            StructField("Extras", StringType, nullable=true)
-        )
-    )
     import spark.implicits._
     val ds = spark.read 
                   .schema(schema) 
@@ -136,6 +141,30 @@ object GDelt {
                   .map(_._2)
                   .collect()
                   .map(t=>rowReducer(t._1, t._2, sc))
+
+  }
+
+  def dsImplementationV2(sc: org.apache.spark.SparkContext, spark: SparkSession) {
+    import spark.implicits._
+    val ds = spark.read 
+                  .schema(schema) 
+                  .option("timestampFormat", "yyyyMMddhhmmss")
+                  .option("delimiter", "\t")
+                  .csv("./segment/*.csv")
+                  .as[GDeltClass]
+
+    val gdelt = ds.filter(line=>line.AllNames!=null && line.DATE!=null)
+                  .map(t=>(t.DATE.toString().split(" ")(0), t.AllNames.split(";")))
+                  .map(t=>(t._1,t._2.map(tin=>tin.split(",")(0)).distinct))
+                  .flatMap(t=>t._2.map(w=>((t._1,w),1)))
+                  .rdd
+                  .reduceByKey((x,y)=>x+y)
+                  .groupBy(t=>t._1._1)
+                  .mapValues(t=>t.map(tin=>(tin._1._2,tin._2))
+                                 .toArray.sortBy(t=>t._2)
+                                 .reverse.take(10))
+                  .collect()
+                  .foreach(t=>println(t._1,t._2.mkString(" ")))
 
   }
 }
