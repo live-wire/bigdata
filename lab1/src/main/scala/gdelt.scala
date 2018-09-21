@@ -6,6 +6,7 @@ import java.sql.Timestamp
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext._
 import java.io._
+import scala.math.pow
 
 object GDelt {
   case class GDeltClass (
@@ -44,8 +45,8 @@ object GDelt {
       )
   )
   def main(args: Array[String]) {
-    Logger.getLogger("org").setLevel(Level.OFF);
-    Logger.getLogger("akka").setLevel(Level.OFF);
+    Logger.getLogger("org").setLevel(Level.OFF)
+    Logger.getLogger("akka").setLevel(Level.OFF)
     Logger.getLogger("org.apache.spark").setLevel(Level.OFF)
     val segments = Option(new File("./segment/").list).map(_.filter(_.endsWith(".csv")).size).getOrElse(0);
     val spark = SparkSession
@@ -56,29 +57,41 @@ object GDelt {
     val sc = spark.sparkContext // If you need SparkContext object
 
     import spark.implicits._
-    
-    println("Running on " + Option(new File("./segment/").list).map(_.filter(_.endsWith(".csv")).size).getOrElse(0) + " segments ======>")
+    val nsegments = Option(new File("./segment/").list).map(_.filter(_.endsWith(".csv")).size).getOrElse(0)
+    println("\n\n Running on " + nsegments + " segments ======>")
 
+    var csvrow = "\n" + nsegments + ", "
+    var timediff = 0.0
     println("\n\n RDD implementation below: \n\n")
     val trdd = System.nanoTime()
     rddImplementation(sc)
-    println("Elapsed time: " + (System.nanoTime() - trdd) + "ns")
+    timediff = (System.nanoTime() - trdd).toDouble / pow(10, 9).toDouble
+    csvrow += timediff + ", "
+    println("Elapsed time: " + timediff + "seconds")
 
     println("\n\n RDD-V2 implementation below: \n\n")
     val trdd2 = System.nanoTime()
     rddImplementationV2(sc)
-    println("Elapsed time: " + (System.nanoTime() - trdd2) + "ns")
+    timediff = (System.nanoTime() - trdd2).toDouble / pow(10, 9).toDouble
+    csvrow += timediff + ", "
+    println("Elapsed time: " + timediff + "seconds")
 
     println("\n\n Dataset implementation below: \n\n")
     val tds = System.nanoTime()
     dsImplementation(sc, spark)
-    println("Elapsed time: " + (System.nanoTime() - tds) + "ns")
+    timediff = (System.nanoTime() - tds).toDouble / pow(10, 9).toDouble
+    csvrow += timediff + ", "
+    println("Elapsed time: " + timediff + "seconds")
 
     println("\n\n Dataset-V2 implementation below: \n\n")
     val tds2 = System.nanoTime()
     dsImplementationV2(sc, spark)
-    println("Elapsed time: " + (System.nanoTime() - tds2) + "ns")
-
+    timediff = (System.nanoTime() - tds2).toDouble / pow(10, 9).toDouble
+    csvrow += timediff + ", "
+    println("Elapsed time: " + timediff + "seconds")
+    val fw = new FileWriter("runtime.csv", true) ; 
+    fw.write(csvrow);
+    fw.close()
     spark.stop
   }
   def rowReducer (key: String , arr: Array[(String, Int)], sc: org.apache.spark.SparkContext) : (String, Array[(String, Int)]) = {
@@ -165,6 +178,5 @@ object GDelt {
                                  .reverse.take(10))
                   .collect()
                   .foreach(t=>println(t._1,t._2.mkString(" ")))
-
   }
 }
