@@ -67,29 +67,29 @@ object GDelt {
     rddImplementation(sc)
     timediff = (System.nanoTime() - trdd).toDouble / pow(10, 9).toDouble
     csvrow += timediff + ", "
-    println("Elapsed time: " + timediff + "seconds")
+    println("Elapsed time: " + timediff + " seconds")
 
     println("\n\n RDD-V2 implementation below: \n\n")
     val trdd2 = System.nanoTime()
     rddImplementationV2(sc)
     timediff = (System.nanoTime() - trdd2).toDouble / pow(10, 9).toDouble
     csvrow += timediff + ", "
-    println("Elapsed time: " + timediff + "seconds")
+    println("Elapsed time: " + timediff + " seconds")
 
     println("\n\n Dataset implementation below: \n\n")
     val tds = System.nanoTime()
     dsImplementation(sc, spark)
     timediff = (System.nanoTime() - tds).toDouble / pow(10, 9).toDouble
     csvrow += timediff + ", "
-    println("Elapsed time: " + timediff + "seconds")
+    println("Elapsed time: " + timediff + " seconds")
 
     println("\n\n Dataset-V2 implementation below: \n\n")
     val tds2 = System.nanoTime()
     dsImplementationV2(sc, spark)
     timediff = (System.nanoTime() - tds2).toDouble / pow(10, 9).toDouble
     csvrow += timediff + ", "
-    println("Elapsed time: " + timediff + "seconds")
-    val fw = new FileWriter("runtime.csv", true) ; 
+    println("Elapsed time: " + timediff + " seconds")
+    val fw = new FileWriter("runtime.csv", true);
     fw.write(csvrow);
     fw.close()
     spark.stop
