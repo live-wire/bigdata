@@ -7,6 +7,7 @@ import org.apache.log4j.{Level, Logger}
 import org.apache.spark.SparkContext._
 import java.io._
 import scala.math.pow
+import org.apache.spark.sql.functions._
 
 object GDelt {
   case class GDeltClass (
@@ -62,12 +63,15 @@ object GDelt {
 
     var csvrow = "\n" + nsegments + ", "
     var timediff = 0.0
+
     println("\n\n RDD implementation below: \n\n")
     val trdd = System.nanoTime()
     rddImplementation(sc)
     timediff = (System.nanoTime() - trdd).toDouble / pow(10, 9).toDouble
     csvrow += timediff + ", "
     println("Elapsed time: " + timediff + " seconds")
+    // csvrow +="NA, "
+
 
     println("\n\n RDD-V2 implementation below: \n\n")
     val trdd2 = System.nanoTime()
@@ -82,6 +86,7 @@ object GDelt {
     timediff = (System.nanoTime() - tds).toDouble / pow(10, 9).toDouble
     csvrow += timediff + ", "
     println("Elapsed time: " + timediff + " seconds")
+    // csvrow +="NA, "
 
     println("\n\n Dataset-V2 implementation below: \n\n")
     val tds2 = System.nanoTime()
