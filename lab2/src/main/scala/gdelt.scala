@@ -49,7 +49,7 @@ object GDelt {
     Logger.getLogger("org").setLevel(Level.OFF)
     Logger.getLogger("akka").setLevel(Level.OFF)
     Logger.getLogger("org.apache.spark").setLevel(Level.OFF)
-    val segments = Option(new File("./segment/").list).map(_.filter(_.endsWith(".csv")).size).getOrElse(0);
+    // val segments = Option(new File("./segment/").list).map(_.filter(_.endsWith(".csv")).size).getOrElse(0);
     val spark = SparkSession
       .builder
       .appName("GDelt")
@@ -58,10 +58,10 @@ object GDelt {
     val sc = spark.sparkContext // If you need SparkContext object
 
     import spark.implicits._
-    val nsegments = Option(new File("./segment/").list).map(_.filter(_.endsWith(".csv")).size).getOrElse(0)
-    println("\n\n Running on " + nsegments + " segments ======>")
+    // val nsegments = Option(new File("./segment/").list).map(_.filter(_.endsWith(".csv")).size).getOrElse(0)
+    // println("\n\n Running on " + nsegments + " segments ======>")
 
-    var csvrow = "\n" + nsegments + ", "
+    // var csvrow = "\n" + nsegments + ", "
     var timediff = 0.0
 
     // println("\n\n RDD implementation below: \n\n")
@@ -72,7 +72,7 @@ object GDelt {
     // println("Elapsed time: " + timediff + " seconds")
     // csvrow +="NA, "
 
-
+    var csvrow = "\n"
     println("\n\n RDD-V2 implementation below: \n\n")
     val trdd2 = System.nanoTime()
     rddImplementationV2(sc)
@@ -125,7 +125,7 @@ object GDelt {
   // }
 
   def rddImplementationV2(sc: org.apache.spark.SparkContext) {
-    val gdeltv2 = sc.textFile("./segment/*.csv") // Array[String] Reads all csv files inside the segment folder
+    val gdeltv2 = sc.textFile("s3n://sbd1/segment/*.csv") // Array[String] Reads all csv files inside the segment folder
                   .map(s=>s.split("\t")) // Array[Array[String]]
                   .filter(a=>a.size>23 && a(23)!="") // Array[Array[String]]
                   .map(a=>(a(1).substring(0, 4)+"-" + a(1).substring(4, 6) + "-" + a(1).substring(6, 8), 
@@ -168,7 +168,7 @@ object GDelt {
                   .schema(schema) 
                   .option("timestampFormat", "yyyyMMddhhmmss")
                   .option("delimiter", "\t")
-                  .csv("./segment/*.csv")
+                  .csv("s3n://sbd1/segment/*.csv")
                   .as[GDeltClass]
 
     val gdelt = ds.filter(line=>line.AllNames!=null && line.DATE!=null)
