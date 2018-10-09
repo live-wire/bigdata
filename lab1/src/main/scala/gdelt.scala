@@ -9,6 +9,10 @@ import java.io._
 import scala.math.pow
 import org.apache.spark.sql.functions._
 
+import org.json4s._
+import org.json4s.JsonDSL._
+import org.json4s.jackson.JsonMethods._
+
 object GDelt {
   case class GDeltClass (
       DATE: Timestamp,
@@ -125,7 +129,7 @@ object GDelt {
   }
 
   def rddImplementationV2(sc: org.apache.spark.SparkContext) {
-    val gdeltv2 = sc.textFile("./segment/*.csv") // Array[String] Reads all csv files inside the segment folder
+    val gdeltv4 = sc.textFile("./segment/*.csv") // Array[String] Reads all csv files inside the segment folder
                   .map(s=>s.split("\t")) // Array[Array[String]]
                   .filter(a=>a.size>23 && a(23)!="") // Array[Array[String]]
                   .map(a=>(a(1).substring(0, 4)+"-" + a(1).substring(4, 6) + "-" + a(1).substring(6, 8), 
@@ -138,7 +142,17 @@ object GDelt {
                                  .toArray.sortBy(t=>t._2)
                                  .reverse.take(10))
                   .collect()
-                  .foreach(t=>println(t._1,t._2.mkString(" ")))
+                  // print RDD 
+                  // .foreach(t=>println(t._1,t._2.mkString(" ")))
+                  
+                  // print JSON
+                  .map(t=>compact(render(
+                          ("data"->t._1)~
+                          ("result"->t._2.toList.map{tin=>(
+                                      ("topic"->tin._1)~
+                                      ("count"->tin._2))}
+                          ))))
+                  .map(s=>println(s))
   }
 
   def dsImplementation(sc: org.apache.spark.SparkContext, spark: SparkSession) {
@@ -182,6 +196,16 @@ object GDelt {
                                  .toArray.sortBy(t=>t._2)
                                  .reverse.take(10))
                   .collect()
-                  .foreach(t=>println(t._1,t._2.mkString(" ")))
+                  // print RDD 
+                  // .foreach(t=>println(t._1,t._2.mkString(" ")))
+                  
+                  // print JSON
+                  .map(t=>compact(render(
+                          ("data"->t._1)~
+                          ("result"->t._2.toList.map{tin=>(
+                                      ("topic"->tin._1)~
+                                      ("count"->tin._2))}
+                          ))))
+                  .map(s=>println(s))
   }
 }

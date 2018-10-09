@@ -9,6 +9,10 @@ import java.io._
 import scala.math.pow
 import org.apache.spark.sql.functions._
 
+import org.json4s._
+import org.json4s.JsonDSL._
+import org.json4s.jackson.JsonMethods._
+
 object GDelt {
   case class GDeltClass (
       DATE: Timestamp,
@@ -64,68 +68,29 @@ object GDelt {
     // var csvrow = "\n" + nsegments + ", "
     var timediff = 0.0
 
-    // println("\n\n RDD implementation below: \n\n")
-    // val trdd = System.nanoTime()
-    // rddImplementation(sc)
-    // timediff = (System.nanoTime() - trdd).toDouble / pow(10, 9).toDouble
-    // csvrow += timediff + ", "
-    // println("Elapsed time: " + timediff + " seconds")
-    // csvrow +="NA, "
-
-    var csvrow = "\n"
-    println("\n\n RDD-V2 implementation below: \n\n")
+    // var csvrow = "\n"
+    println("\n\n RDD implementation below: \n\n")
     val trdd2 = System.nanoTime()
-    rddImplementationV2(sc)
+    rddImplementation(sc)
     timediff = (System.nanoTime() - trdd2).toDouble / pow(10, 9).toDouble
-    csvrow += timediff + ", "
+    // csvrow += timediff + ", "
     println("Elapsed time: " + timediff + " seconds")
 
-    // println("\n\n Dataset implementation below: \n\n")
-    // val tds = System.nanoTime()
-    // dsImplementation(sc, spark)
-    // timediff = (System.nanoTime() - tds).toDouble / pow(10, 9).toDouble
+
+    // println("\n\n Dataset-V2 implementation below: \n\n")
+    // val tds2 = System.nanoTime()
+    // dsImplementationV2(sc, spark)
+    // timediff = (System.nanoTime() - tds2).toDouble / pow(10, 9).toDouble
     // csvrow += timediff + ", "
     // println("Elapsed time: " + timediff + " seconds")
-    // csvrow +="NA, "
-
-    println("\n\n Dataset-V2 implementation below: \n\n")
-    val tds2 = System.nanoTime()
-    dsImplementationV2(sc, spark)
-    timediff = (System.nanoTime() - tds2).toDouble / pow(10, 9).toDouble
-    csvrow += timediff + ", "
-    println("Elapsed time: " + timediff + " seconds")
-    val fw = new FileWriter("runtime.csv", true);
-    fw.write(csvrow);
-    fw.close()
+    // val fw = new FileWriter("runtime.csv", true);
+    // fw.write(csvrow);
+    // fw.close()
     spark.stop
   }
-  def rowReducer (key: String , arr: Array[(String, Int)], sc: org.apache.spark.SparkContext) : (String, Array[(String, Int)]) = {
-        val gdeltDate = sc.parallelize(arr)
-                    .reduceByKey((x,y)=>x+y)
-                    .filter(t=>t._1!="")
-                    .sortBy(_._2, false)
-                    .take(10)
-        println((key, gdeltDate.mkString(", ")))
-        return (key, arr)
-  }
 
-  // def rddImplementation(sc: org.apache.spark.SparkContext) {
-  //   val gdelt = sc.textFile("./segment/*.csv") // Array[String] Reads all csv files inside the segment folder
-  //                 .map(s=>s.split("\t")) // Array[Array[String]]
-  //                 .filter(a=>a.size>23 && a(23)!="") // Array[Array[String]]
-  //                 .map(a=>(a(1).substring(0, 4)+"-" + a(1).substring(4, 6) + "-" + a(1).substring(6, 8), 
-  //                         a(23).split(";") // Array[Array[(String, Array[String])]]
-  //                              .map(x=>x.split(",")(0)) // Array[Array[(String, Array[String])]]
-  //                              .distinct  // Array[Array[(String, Array[String])]]
-  //                              .map(x=>(x, 1))))  // Array[Array[(String, Array[(String, Int)])]]
-  //                 // .filter(t=>t._1=="2015-02-18") // Uncomment this to enable the operation only for a particular date
-  //                 .reduceByKey((x,y)=>x++y)
-  //                 .collect() // Important before we can call multiple sc.parallelize
-  //                 .map(t=>rowReducer(t._1, t._2, sc))
-  // }
-
-  def rddImplementationV2(sc: org.apache.spark.SparkContext) {
-    val gdeltv2 = sc.textFile("s3n://sbd1/segment/*.csv") // Array[String] Reads all csv files inside the segment folder
+  def rddImplementation(sc: org.apache.spark.SparkContext) {
+    val gdeltv2 = sc.textFile("s3a://sbd1/segment/*.csv") // Array[String] Reads all csv files inside the segment folder
                   .map(s=>s.split("\t")) // Array[Array[String]]
                   .filter(a=>a.size>23 && a(23)!="") // Array[Array[String]]
                   .map(a=>(a(1).substring(0, 4)+"-" + a(1).substring(4, 6) + "-" + a(1).substring(6, 8), 
@@ -138,37 +103,26 @@ object GDelt {
                                  .toArray.sortBy(t=>t._2)
                                  .reverse.take(10))
                   .collect()
-                  .foreach(t=>println(t._1,t._2.mkString(" ")))
+                  // print RDD 
+                  // .foreach(t=>println(t._1,t._2.mkString(" ")))
+                  
+                  // print JSON
+                  .map(t=>compact(render(
+                          ("data"->t._1)~
+                          ("result"->t._2.toList.map{tin=>(
+                                      ("topic"->tin._1)~
+                                      ("count"->tin._2))}
+                          ))))
+                  .map(s=>println(s))
   }
-
-  // def dsImplementation(sc: org.apache.spark.SparkContext, spark: SparkSession) {
-  //   import spark.implicits._
-  //   val ds = spark.read 
-  //                 .schema(schema) 
-  //                 .option("timestampFormat", "yyyyMMddhhmmss")
-  //                 .option("delimiter", "\t")
-  //                 .csv("./segment/*.csv")
-  //                 .as[GDeltClass]
-
-  //   val gdelt = ds.filter(line=>line.AllNames!=null && line.DATE!=null)
-  //                 .map(t=>(t.DATE.toString().split(" ")(0), t.AllNames.split(";")
-  //                                   .map(tup=>(tup.split(",")(0),1))
-  //                                   .distinct))
-  //                 .groupByKey(_._1)
-  //                 .reduceGroups((x,y)=>(x._1, x._2 ++ y._2))
-  //                 .map(_._2)
-  //                 .collect()
-  //                 .map(t=>rowReducer(t._1, t._2, sc))
-
-  // }
 
   def dsImplementationV2(sc: org.apache.spark.SparkContext, spark: SparkSession) {
     import spark.implicits._
-    val ds = spark.read 
-                  .schema(schema) 
+    val ds = spark.read
+                  .schema(schema)
                   .option("timestampFormat", "yyyyMMddhhmmss")
                   .option("delimiter", "\t")
-                  .csv("s3n://sbd1/segment/*.csv")
+                  .csv("s3a://sbd1/segment/*.csv")
                   .as[GDeltClass]
 
     val gdelt = ds.filter(line=>line.AllNames!=null && line.DATE!=null)
@@ -182,6 +136,16 @@ object GDelt {
                                  .toArray.sortBy(t=>t._2)
                                  .reverse.take(10))
                   .collect()
-                  .foreach(t=>println(t._1,t._2.mkString(" ")))
+                  // print RDD 
+                  // .foreach(t=>println(t._1,t._2.mkString(" ")))
+                  
+                  // print JSON
+                  .map(t=>compact(render(
+                          ("data"->t._1)~
+                          ("result"->t._2.toList.map{tin=>(
+                                      ("topic"->tin._1)~
+                                      ("count"->tin._2))}
+                          ))))
+                  .map(s=>println(s))
   }
 }
