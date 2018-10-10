@@ -50,6 +50,9 @@ object GDelt {
       )
   )
   def main(args: Array[String]) {
+
+    val files = if (args.size > 0) args(0) else "*"
+    println("Files to process = " + files)
     Logger.getLogger("org").setLevel(Level.OFF)
     Logger.getLogger("akka").setLevel(Level.OFF)
     Logger.getLogger("org.apache.spark").setLevel(Level.OFF)
@@ -79,7 +82,7 @@ object GDelt {
 
     println("\n\n RDD-V2 implementation below: \n\n")
     val trdd2 = System.nanoTime()
-    rddImplementationV2(sc)
+    rddImplementationV2(sc, files)
     timediff = (System.nanoTime() - trdd2).toDouble / pow(10, 9).toDouble
     csvrow += timediff + ", "
     println("Elapsed time: " + timediff + " seconds")
@@ -103,6 +106,23 @@ object GDelt {
     fw.close()
     spark.stop
   }
+  def prepareRangeString(num: String) : String = {
+    if (num == "*") {
+      return "*"
+    } else if ( num == "10" ) {
+      return "2015021{8,900,901[01]}*"
+    } else if ( num == "100" ) {
+      return "201502{18,19,200[01]}*"
+    } else if ( num == "1000") {
+      return "20150{2,3010,30110}*"
+    } else if ( num == "10000") {
+      return "20150{[12345],60[12],6030[0123456],603070000}*"
+    } else if ( num == "100000") {
+      return "201{[567],8010[01234567],801080,801081[01234567],80108180000}*"
+    }
+    return "*"
+  }
+
   def rowReducer (key: String , arr: Array[(String, Int)], sc: org.apache.spark.SparkContext) : (String, Array[(String, Int)]) = {
         val gdeltDate = sc.parallelize(arr)
                     .reduceByKey((x,y)=>x+y)
@@ -128,8 +148,8 @@ object GDelt {
                   .map(t=>rowReducer(t._1, t._2, sc))
   }
 
-  def rddImplementationV2(sc: org.apache.spark.SparkContext) {
-    val gdeltv4 = sc.textFile("./segment/*.csv") // Array[String] Reads all csv files inside the segment folder
+  def rddImplementationV2(sc: org.apache.spark.SparkContext, files: String) {
+    val gdeltv4 = sc.textFile("./segment/" +prepareRangeString(files) + ".csv") // Array[String] Reads all csv files inside the segment folder
                   .map(s=>s.split("\t")) // Array[Array[String]]
                   .filter(a=>a.size>23 && a(23)!="") // Array[Array[String]]
                   .map(a=>(a(1).substring(0, 4)+"-" + a(1).substring(4, 6) + "-" + a(1).substring(6, 8), 
