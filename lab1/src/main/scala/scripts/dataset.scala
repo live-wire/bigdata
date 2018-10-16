@@ -11,6 +11,8 @@ import org.apache.spark.sql.functions._
 import org.json4s._
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods._
+import org.apache.spark.sql.expressions.Window
+import org.apache.spark.sql.functions.{alias, collect_list}
 
 case class GDeltClass (
   DATE: Timestamp,
@@ -57,9 +59,20 @@ val ds = spark.read
               .csv("./segment/*.csv")
               .as[GDeltClass]
 
+val byDate = Window.partitionBy('date).orderBy('count desc) //window function
+val rankByDate = rank().over(byDate)
+
 val gdelt = ds.filter(line=>line.AllNames!=null && line.DATE!=null)
               .map(t=>(t.DATE.toString().split(" ")(0), t.AllNames.split(";")))
               .map(t=>(t._1,t._2.map(tin=>tin.split(",")(0)).distinct))
               .flatMap(t=>t._2.map(w=>(t._1,w)))
 				  .toDF("date", "topic").as[DateWord]
 				  .groupBy("date", "topic").count
+          .select('*, rankByDate as 'rank).filter('rank <= 10)
+          .foreach(t=>println(t))
+          // print JSON
+
+          
+
+
+            

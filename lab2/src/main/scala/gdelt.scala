@@ -12,6 +12,7 @@ import org.apache.spark.sql.functions._
 import org.json4s._
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods._
+import org.apache.spark.sql.expressions.Window
 
 object GDelt {
   case class GDeltClass (
@@ -72,12 +73,12 @@ object GDelt {
     var timediff = 0.0
 
     // var csvrow = "\n"
-    println("\n\n RDD implementation below: \n\n")
-    val trdd2 = System.nanoTime()
-    rddImplementation(sc, files)
-    timediff = (System.nanoTime() - trdd2).toDouble / pow(10, 9).toDouble
-    // csvrow += timediff + ", "
-    println("Elapsed time: " + timediff + " seconds")
+    // println("\n\n RDD implementation below: \n\n")
+    // val trdd2 = System.nanoTime()
+    // rddImplementation(sc, files)
+    // timediff = (System.nanoTime() - trdd2).toDouble / pow(10, 9).toDouble
+    // // csvrow += timediff + ", "
+    // println("Elapsed time: " + timediff + " seconds")
 
 
     // println("\n\n Dataset-V2 implementation below: \n\n")
@@ -89,6 +90,14 @@ object GDelt {
     // val fw = new FileWriter("runtime.csv", true);
     // fw.write(csvrow);
     // fw.close()
+
+
+    println("\n\n Dataset-V3 implementation below: \n\n")
+    val tds3 = System.nanoTime()
+    dsImplementationV3(sc, files)
+    timediff = (System.nanoTime() - tds3).toDouble / pow(10, 9).toDouble
+    // csvrow += timediff + ", "
+    println("Elapsed time: " + timediff + " seconds")
     spark.stop
   }
 
