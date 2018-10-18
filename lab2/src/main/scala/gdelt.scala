@@ -13,12 +13,15 @@ import org.json4s._
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods._
 import org.apache.spark.sql.expressions.Window
+import org.apache.spark.sql.functions.collect_list
 
 object GDelt {
   case class GDeltClass (
       DATE: Timestamp,
       AllNames: String
   )
+  case class DateWord(date: String, topic: String)
+
   val schema = StructType(
       Array(
           StructField("GKGRECORDID",  StringType, nullable=true),
@@ -94,7 +97,7 @@ object GDelt {
 
     println("\n\n Dataset-V3 implementation below: \n\n")
     val tds3 = System.nanoTime()
-    dsImplementationV3(sc, files)
+    dsImplementationV3(sc, spark, files)
     timediff = (System.nanoTime() - tds3).toDouble / pow(10, 9).toDouble
     // csvrow += timediff + ", "
     println("Elapsed time: " + timediff + " seconds")
@@ -146,36 +149,38 @@ object GDelt {
                   .map(s=>println(s))
   }
 
-  def dsImplementationV2(sc: org.apache.spark.SparkContext, spark: SparkSession) {
+  def dsImplementationV3(sc: org.apache.spark.SparkContext, spark: SparkSession, files: String) {
     import spark.implicits._
     val ds = spark.read
                   .schema(schema)
                   .option("timestampFormat", "yyyyMMddhhmmss")
                   .option("delimiter", "\t")
-                  .csv("s3a://sbd1/segment/*.csv")
+                  .csv("s3n://gdelt-open-data/v2/gkg/" + prepareRangeString(files) + ".csv")
                   .as[GDeltClass]
 
+    val byDate = Window.partitionBy('date).orderBy('count desc) //window function
+    val rankByDate = rank().over(byDate)
+     
     val gdelt = ds.filter(line=>line.AllNames!=null && line.DATE!=null)
-                  .map(t=>(t.DATE.toString().split(" ")(0), t.AllNames.split(";")))
-                  .map(t=>(t._1,t._2.map(tin=>tin.split(",")(0)).distinct))
-                  .flatMap(t=>t._2.map(w=>((t._1,w),1)))
-                  .rdd
-                  .reduceByKey((x,y)=>x+y)
-                  .groupBy(t=>t._1._1)
-                  .mapValues(t=>t.map(tin=>(tin._1._2,tin._2))
-                                 .toArray.sortBy(t=>t._2)
-                                 .reverse.take(10))
-                  .collect()
-                  // print RDD 
-                  // .foreach(t=>println(t._1,t._2.mkString(" ")))
-                  
-                  // print JSON
-                  .map(t=>compact(render(
-                          ("data"->t._1)~
-                          ("result"->t._2.toList.map{tin=>(
-                                      ("topic"->tin._1)~
-                                      ("count"->tin._2))}
-                          ))))
-                  .map(s=>println(s))
+            .map(t=>(t.DATE.toString().split(" ")(0), t.AllNames.split(";")))
+            .map(t=>(t._1,t._2.map(tin=>tin.split(",")(0)).distinct))
+            .flatMap(t=>t._2.map(w=>(t._1,w)))
+            .toDF("date", "topic").as[DateWord]
+            .groupBy("date", "topic").count
+            .select('*, rankByDate as 'rank).filter('rank <= 10)
+            .drop("rank")
+            .rdd
+            .map(r=>(r.getString(0),List((r.getString(1), r.getLong(2)))))
+            .reduceByKey((x,y)=>x++y)
+            .collect()
+            // print JSON
+            .map(t=>compact(render(
+                    ("data"->t._1)~
+                    ("result"->t._2.toList.map{tin=>(
+                                ("topic"->tin._1)~
+                                ("count"->tin._2))}
+                    ))))
+            .map(s=>println(s))
+            
   }
 }
