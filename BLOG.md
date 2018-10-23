@@ -16,8 +16,8 @@ topics for each day. We were able to process the entire dataset using our datafr
 	- If you didn't notice, the s3 paths of the _csv_ files are provided in the [gdeltv2gkg.txt](https://github.com/Tclv/SBD-2018/blob/master/data/gdeltv2gkg.txt).
 	- We used **Regular Expressions** to process _10^n_ files at a time. Our s3 path while reading the files looks like this: 
 	`sc.textFile("s3n://gdelt-open-data/v2/gkg/" + prepareRangeString(num) + ".csv")`
-	(Notice how we used the native path **s3n://** here instead of _s3://_ for faster file access speeds)
-	where and our regex preparation function looks like this:
+	(Note: We tried using **s3a://** here instead of _s3://_ or equivalently _s3n://_ for faster file access speeds but unfortunately it is not supported by EMR. In any other Hadoop framework, one can use s3a:// for fast file access.)
+	Our regex preparation function looks like this:
 	```
 	def prepareRangeString(num: String) : String = {
 	    if (num == "*") {
