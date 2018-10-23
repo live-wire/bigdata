@@ -54,7 +54,7 @@ reasons like memory leaks, insufficient driver memory, insufficient executor mem
 memory fraction, large shuffle memory fraction etc. Look for the driver node using Ganglia. The driver node would typically have the least amount of CPU usage. (It is chosen randomly by EMR to be the driver for your cluster in **cluster** mode). Since, all of our nodes were C4-8xLarge, we knew the driver had 60GB of memory available at our disposal. We used the config: 
 `--driver-memory 40g` in **spark-submit** command. To make the driver use 40GBs insted of the default 1GB.
 ![Resource Usage difference when increasing driver memory](https://live-wire.github.io/sbd/images/driver.png)
-- **maxResultSize** - spark.driver.maxResultSize was set to 1GB by default and was insufficient
+- **maxResultSize reached error** - spark.driver.maxResultSize was set to 1GB by default and was insufficient
 for our initial mapping step. Hence, we increased it to 5GB by adding:
 `--conf spark.driver.maxResultSize = 5g` in the **spark-submit** command.
 
