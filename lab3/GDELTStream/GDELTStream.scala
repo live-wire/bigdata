@@ -30,6 +30,19 @@ object GDELTStream extends App {
   // write the result to a new topic called gdelt-histogram. 
   val records: KStream[String, String] = builder.stream[String, String]("gdelt")
 
+
+  val allNames:KStream[String, Array[String]] = records.map((k,s)=> (k,s.split("\t"))) // Array[Array[String]]
+  val allNamesFiltered: KStream[String, Array[String]] = allNames.filter((_,a)=>a.size>23 && a(23)!="")
+  val allNamesString: KStream[String, String] = allNamesFiltered.map((k,a)=>(k, a(23).split(";").map(x=>x.split(",")(0)).distinct.mkString(",")))
+   // Array[Array[(String, Array[String])]]
+                                // Array[Array[(String, Array[String])]]
+                               
+  
+
+
+  allNamesString.to("allNames")
+
+
   val streams: KafkaStreams = new KafkaStreams(builder.build(), props)
   streams.cleanUp()
   streams.start()
