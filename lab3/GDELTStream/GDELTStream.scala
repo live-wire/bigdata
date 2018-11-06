@@ -28,6 +28,7 @@ object GDELTStream extends App {
     val p = new Properties()
     p.put(StreamsConfig.APPLICATION_ID_CONFIG, "lab3-gdelt-stream")
     p.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092")
+    p.put(StreamsConfig.PROCESSING_GUARANTEE_CONFIG, StreamsConfig.EXACTLY_ONCE)
     p
   }
 
@@ -93,7 +94,7 @@ class HistogramTransformer extends Transformer[String, String, (String, Long)] {
   def transform(key: String, name: String): (String, Long) = {
     val cnt = incrementCount(name) // Increment count for the name
     var scheduled: Cancellable = null
-    scheduled = this.context.schedule(60 * 1000, PunctuationType.WALL_CLOCK_TIME, (timestamp) => {
+    scheduled = this.context.schedule(60 * 60 * 1000, PunctuationType.WALL_CLOCK_TIME, (timestamp) => {
       decrementCount(name) // Decrement count for the name after an hour!
       scheduled.cancel() // We want the count to be decremented only once!
     });
